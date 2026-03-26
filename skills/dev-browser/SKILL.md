@@ -22,6 +22,7 @@ Browser automation that maintains page state across script executions. Write sma
 **Wait for the `Ready` message before running scripts.**
 
 The server:
+
 - Auto-assigns a port from 19222-19300 (avoids Chrome CDP port conflicts)
 - Writes the port to `tmp/port` for client discovery
 - Outputs `PORT=XXXX` to stdout
@@ -29,6 +30,7 @@ The server:
 - Cleans up stale server entries on startup
 
 The client (`connectLite()`) auto-discovers the port in this order:
+
 1. `DEV_BROWSER_PORT` environment variable
 2. `tmp/port` file in skill directory
 3. Most recent server from `~/.dev-browser/active-servers.json`
@@ -42,6 +44,7 @@ The server uses Chrome for Testing via CDP based on configuration at `~/.dev-bro
 **Important**: If Chrome for Testing is not found, the server will fail with an error instead of falling back to Playwright's bundled browser. This ensures consistent browser behavior.
 
 **Flags:**
+
 - `--standalone` - Force standalone Playwright mode (not recommended)
 - `--headless` - Run headless (standalone mode only)
 
@@ -60,17 +63,18 @@ Browser settings are configured in `~/.dev-browser/config.json`:
 }
 ```
 
-| Setting | Values | Description |
-|---------|--------|-------------|
-| `portRange.start` | Number (default: 19222) | First port to try for HTTP API server |
-| `portRange.end` | Number (default: 19300) | Last port to try |
-| `cdpPort` | Number (default: 9223) | Chrome DevTools Protocol port |
-| `browser.mode` | `"auto"` (default), `"external"`, `"standalone"` | `auto` and `external` use Chrome for Testing; `standalone` uses Playwright (not recommended) |
-| `browser.path` | Path string | Browser executable or .app bundle. On macOS, .app paths use `open -a` for proper Dock icon |
-| `browser.userDataDir` | Path string | Browser profile directory for external mode (uses browser's default if not set) |
+| Setting               | Values                                           | Description                                                                                  |
+| --------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `portRange.start`     | Number (default: 19222)                          | First port to try for HTTP API server                                                        |
+| `portRange.end`       | Number (default: 19300)                          | Last port to try                                                                             |
+| `cdpPort`             | Number (default: 9223)                           | Chrome DevTools Protocol port                                                                |
+| `browser.mode`        | `"auto"` (default), `"external"`, `"standalone"` | `auto` and `external` use Chrome for Testing; `standalone` uses Playwright (not recommended) |
+| `browser.path`        | Path string                                      | Browser executable or .app bundle. On macOS, .app paths use `open -a` for proper Dock icon   |
+| `browser.userDataDir` | Path string                                      | Browser profile directory for external mode (uses browser's default if not set)              |
 
 **Auto-detection paths:**
-- **macOS**: `/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing`
+
+- **macOS**: `/Applications/Chrome for Testing.app` (launcher wrapper with CDP flags and focus-steal prevention)
 - **Linux**: `/opt/google/chrome-for-testing/chrome`, `/usr/bin/google-chrome-for-testing`
 - **Windows**: `C:\Program Files\Google\Chrome for Testing\Application\chrome.exe`
 
@@ -146,15 +150,21 @@ Code passed to `client.evaluate()` runs in the browser, which doesn't understand
 
 ```typescript
 // ✅ Correct: plain JavaScript
-const text = await client.evaluate("mypage", `
+const text = await client.evaluate(
+  "mypage",
+  `
   document.body.innerText
-`);
+`
+);
 
 // ❌ Wrong: TypeScript syntax will fail at runtime
-const text = await client.evaluate("mypage", `
+const text = await client.evaluate(
+  "mypage",
+  `
   const el: HTMLElement = document.body; // Type annotation breaks in browser!
   el.innerText;
-`);
+`
+);
 ```
 
 ## Scraping Data
@@ -167,16 +177,16 @@ For scraping large datasets, intercept and replay network requests rather than s
 import { connectLite } from "@/client-lite.js";
 
 const client = await connectLite();
-await client.page("name");              // Get or create named page
-const pages = await client.list();      // List all page names
-await client.close("name");             // Close a page
-await client.disconnect();              // Disconnect (pages persist)
+await client.page("name"); // Get or create named page
+const pages = await client.list(); // List all page names
+await client.close("name"); // Close a page
+await client.disconnect(); // Disconnect (pages persist)
 
 // ARIA Snapshot methods
-const snapshot = await client.getAISnapshot("name");    // Get accessibility tree
-const refInfo = await client.selectRef("name", "e5");   // Get element info by ref
-await client.click("name", "e5");                       // Click element by ref
-await client.fill("name", "e5", "text");                // Fill input by ref
+const snapshot = await client.getAISnapshot("name"); // Get accessibility tree
+const refInfo = await client.selectRef("name", "e5"); // Get element info by ref
+await client.click("name", "e5"); // Click element by ref
+await client.fill("name", "e5", "text"); // Fill input by ref
 ```
 
 ## Waiting

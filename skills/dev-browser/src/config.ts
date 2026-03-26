@@ -49,7 +49,8 @@ export interface BrowserConfig {
    *
    * Examples:
    * - macOS app bundle: /Applications/Chrome for Testing.app
-   * - macOS binary: ~/.local/apps/Google Chrome for Testing.app/.../Google Chrome for Testing
+   * - macOS launcher: /Applications/Chrome for Testing.app (preferred, handles CDP flags internally)
+   * - macOS binary: ~/.local/apps/Google Chrome for Testing.app (fallback)
    * - Linux: /opt/google/chrome-for-testing/chrome
    * - Windows: C:\Program Files\Google\Chrome for Testing\Application\chrome.exe
    */
@@ -111,10 +112,15 @@ function getDefaultBrowserPath(): string | undefined {
   const homeDir = process.env.HOME || "";
 
   if (platform === "darwin") {
-    // macOS: Check standard installation path
-    const macPath = "/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing";
-    if (existsSync(macPath)) {
-      return macPath;
+    // macOS: Prefer the launcher wrapper which handles CDP flags and focus-steal prevention
+    const launcherPath = "/Applications/Chrome for Testing.app";
+    if (existsSync(launcherPath)) {
+      return launcherPath;
+    }
+    // Fallback: hidden binary (no CDP flags, will steal focus)
+    const hiddenPath = `${homeDir}/.local/apps/Google Chrome for Testing.app`;
+    if (existsSync(hiddenPath)) {
+      return hiddenPath;
     }
   } else if (platform === "linux") {
     // Linux: Check common installation paths
@@ -192,7 +198,7 @@ export function loadConfig(): DevBrowserConfig {
     if (!existsSync(config.browser.path)) {
       console.warn(
         `Warning: Configured browser path does not exist: ${config.browser.path}\n` +
-        `Falling back to auto-detection...`
+          `Falling back to auto-detection...`
       );
       config.browser.path = getDefaultBrowserPath();
     }
@@ -222,14 +228,14 @@ export function getResolvedBrowserConfig(): {
     // Standalone mode is explicitly requested - allow it but warn
     console.warn(
       `Warning: Standalone mode uses Playwright's bundled Chromium, not Chrome for Testing.\n` +
-      `For consistent browser behavior, use mode "auto" or "external" with Chrome for Testing.`
+        `For consistent browser behavior, use mode "auto" or "external" with Chrome for Testing.`
     );
     effectiveMode = "standalone";
   } else if (browser.mode === "external") {
     if (!browser.path) {
       throw new Error(
         `Browser mode is "external" but no browser path configured or detected. ` +
-        `Set browser.path in ~/.dev-browser/config.json or install Chrome for Testing.`
+          `Set browser.path in ~/.dev-browser/config.json or install Chrome for Testing.`
       );
     }
     effectiveMode = "external";
@@ -238,7 +244,7 @@ export function getResolvedBrowserConfig(): {
     if (!browser.path) {
       throw new Error(
         `Chrome for Testing not found at standard locations.\n` +
-        `Set browser.path in ~/.dev-browser/config.json to your Chrome executable or app bundle.`
+          `Set browser.path in ~/.dev-browser/config.json to your Chrome executable or app bundle.`
       );
     }
     effectiveMode = "external";
@@ -299,8 +305,8 @@ export async function findAvailablePort(config?: DevBrowserConfig): Promise<numb
 
   throw new Error(
     `No available ports in range ${start}-${end} (step ${step}). ` +
-    `Too many dev-browser servers may be running. ` +
-    `Check ~/.dev-browser/active-servers.json for active servers.`
+      `Too many dev-browser servers may be running. ` +
+      `Check ~/.dev-browser/active-servers.json for active servers.`
   );
 }
 
@@ -513,9 +519,7 @@ export function cleanupOrphanedBrowsers(cdpPorts?: number[]): number {
       process.kill(orphan.pid, "SIGTERM");
       cleaned++;
     } catch (err) {
-      console.warn(
-        `Warning: Could not kill orphaned process ${orphan.pid}: ${err}`
-      );
+      console.warn(`Warning: Could not kill orphaned process ${orphan.pid}: ${err}`);
     }
   }
 

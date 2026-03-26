@@ -21,7 +21,7 @@
  *   }
  *
  * Example with Chrome for Testing:
- *   BROWSER_PATH="/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing" \
+ *   BROWSER_PATH="/Applications/Chrome for Testing.app" \
  *   npx tsx scripts/start-external-browser.ts
  *
  * Multi-agent usage:
