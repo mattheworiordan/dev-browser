@@ -112,15 +112,10 @@ function getDefaultBrowserPath(): string | undefined {
   const homeDir = process.env.HOME || "";
 
   if (platform === "darwin") {
-    // macOS: Prefer the launcher wrapper which handles CDP flags and focus-steal prevention
-    const launcherPath = "/Applications/Chrome for Testing.app";
-    if (existsSync(launcherPath)) {
-      return launcherPath;
-    }
-    // Fallback: hidden binary (no CDP flags, will steal focus)
-    const hiddenPath = `${homeDir}/.local/apps/Google Chrome for Testing.app`;
-    if (existsSync(hiddenPath)) {
-      return hiddenPath;
+    // macOS: Use Google Chrome for Testing directly from /Applications
+    const chromePath = "/Applications/Google Chrome for Testing.app";
+    if (existsSync(chromePath)) {
+      return chromePath;
     }
   } else if (platform === "linux") {
     // Linux: Check common installation paths

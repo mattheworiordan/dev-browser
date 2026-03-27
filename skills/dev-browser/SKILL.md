@@ -58,7 +58,7 @@ Browser settings are configured in `~/.dev-browser/config.json`:
   "cdpPort": 9223,
   "browser": {
     "mode": "auto",
-    "path": "/Applications/Chrome for Testing.app"
+    "path": "/Applications/Google Chrome for Testing.app"
   }
 }
 ```
@@ -74,7 +74,7 @@ Browser settings are configured in `~/.dev-browser/config.json`:
 
 **Auto-detection paths:**
 
-- **macOS**: `/Applications/Chrome for Testing.app` (launcher wrapper with CDP flags and focus-steal prevention)
+- **macOS**: `/Applications/Google Chrome for Testing.app`
 - **Linux**: `/opt/google/chrome-for-testing/chrome`, `/usr/bin/google-chrome-for-testing`
 - **Windows**: `C:\Program Files\Google\Chrome for Testing\Application\chrome.exe`
 

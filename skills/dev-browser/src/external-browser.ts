@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import type { Socket } from "net";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -95,13 +95,28 @@ async function getCdpEndpoint(cdpPort: number, maxRetries = 60): Promise<string>
  * for proper Dock icon integration. The app should handle CDP flags internally.
  */
 function launchBrowserDetached(browserPath: string, cdpPort: number, userDataDir?: string): void {
-  // On macOS, if path is an app bundle, use `open -a` for proper Dock icon
+  // On macOS, if path is an app bundle, launch with `open -a` and pass flags via --args.
+  // This is the standard macOS way to launch an app with arguments.
   if (process.platform === "darwin" && browserPath.endsWith(".app")) {
     console.log(`Launching macOS app: ${browserPath}`);
-    console.log(`  (App handles CDP port and user data dir internally)`);
 
-    // -g prevents bringing the app to the foreground (no focus stealing)
-    const child = spawn("open", ["-g", "-a", browserPath], {
+    // -g prevents bringing Chrome to the foreground (no focus stealing)
+    const args = [
+      "-g",
+      "-a",
+      browserPath,
+      "--args",
+      `--remote-debugging-port=${cdpPort}`,
+      "--no-first-run",
+      "--no-default-browser-check",
+      "--disable-infobars",
+    ];
+
+    if (userDataDir) {
+      args.push(`--user-data-dir=${userDataDir}`);
+    }
+
+    const child = spawn("open", args, {
       detached: true,
       stdio: "ignore",
     });
@@ -131,6 +146,39 @@ function launchBrowserDetached(browserPath: string, cdpPort: number, userDataDir
     stdio: "ignore",
   });
   child.unref();
+}
+
+/**
+ * Get the bundle ID of the currently focused macOS app.
+ * Returns null on non-macOS or on error.
+ */
+function getFrontmostAppId(): string | null {
+  if (process.platform !== "darwin") return null;
+  try {
+    return execSync(
+      `osascript -e 'tell application "System Events" to get bundle identifier of first application process whose frontmost is true'`,
+      { encoding: "utf-8", timeout: 2000 }
+    ).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reactivate a macOS app by bundle ID (restores focus after Chrome steals it).
+ */
+function reactivateApp(bundleId: string): void {
+  if (process.platform !== "darwin" || !bundleId) return;
+  try {
+    // Use background activation to avoid visual flicker
+    execSync(`osascript -e 'tell application id "${bundleId}" to activate'`, {
+      encoding: "utf-8",
+      timeout: 2000,
+      stdio: "ignore",
+    });
+  } catch {
+    // Best effort — don't fail the operation if reactivation fails
+  }
 }
 
 /**
@@ -237,6 +285,32 @@ export async function serveWithExternalBrowser(
   const app: Express = express();
   app.use(express.json());
 
+  // Focus-restore middleware (macOS only): saves the frontmost app before each request
+  // and restores it after the response completes. This prevents Chrome from stealing
+  // focus when Playwright operations activate tabs/windows.
+  if (process.platform === "darwin") {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      // Only apply to mutation routes (page creation, navigation, clicks, etc.)
+      // Skip read-only routes (GET /, GET /pages, GET /pages/:name/info)
+      if (req.method === "GET" && !req.path.includes("/snapshot")) {
+        next();
+        return;
+      }
+
+      const previousApp = getFrontmostAppId();
+      const originalJson = res.json.bind(res);
+      res.json = function (body: unknown) {
+        // Restore focus after the response is sent
+        if (previousApp && previousApp !== "com.google.chrome.for.testing") {
+          // Small delay to let Chrome's focus steal complete before we restore
+          setTimeout(() => reactivateApp(previousApp), 100);
+        }
+        return originalJson(body);
+      } as typeof res.json;
+      next();
+    });
+  }
+
   // Idle timeout tracking
   let lastActivityTime = Date.now();
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -296,7 +370,6 @@ export async function serveWithExternalBrowser(
     // Check if page already exists
     let entry = registry.get(name);
     if (!entry) {
-      // Create new page in the context (with timeout to prevent hangs)
       const page = await withTimeout(context.newPage(), 30000, "Page creation timed out after 30s");
       const targetId = await getTargetId(page);
       entry = { page, targetId };

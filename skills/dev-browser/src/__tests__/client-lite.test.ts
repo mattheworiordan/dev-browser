@@ -64,31 +64,27 @@ describe("connectLite", () => {
   });
 
   it("should use default server URL", async () => {
-    const client = await connectLite();
-    mockFetch.mockResolvedValueOnce(
-      mockJsonResponse<ListPagesResponse>({ pages: [] })
-    );
+    // Set env var to control port discovery (overrides active-servers.json)
+    process.env.DEV_BROWSER_PORT = "19222";
+    try {
+      const client = await connectLite();
+      mockFetch.mockResolvedValueOnce(mockJsonResponse<ListPagesResponse>({ pages: [] }));
 
-    await client.list();
+      await client.list();
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:9222/pages",
-      expect.any(Object)
-    );
+      expect(mockFetch).toHaveBeenCalledWith("http://localhost:19222/pages", expect.any(Object));
+    } finally {
+      delete process.env.DEV_BROWSER_PORT;
+    }
   });
 
   it("should use custom server URL", async () => {
     const client = await connectLite("http://localhost:9333");
-    mockFetch.mockResolvedValueOnce(
-      mockJsonResponse<ListPagesResponse>({ pages: [] })
-    );
+    mockFetch.mockResolvedValueOnce(mockJsonResponse<ListPagesResponse>({ pages: [] }));
 
     await client.list();
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:9333/pages",
-      expect.any(Object)
-    );
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:9333/pages", expect.any(Object));
   });
 });
 
@@ -131,10 +127,7 @@ describe("DevBrowserLiteClient", () => {
 
       const result = await client.list();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "http://localhost:9222/pages",
-        expect.any(Object)
-      );
+      expect(mockFetch).toHaveBeenCalledWith("http://localhost:9222/pages", expect.any(Object));
       expect(result).toEqual(["page1", "page2"]);
     });
   });
@@ -309,13 +302,9 @@ describe("DevBrowserLiteClient", () => {
     });
 
     it("should throw on click error", async () => {
-      mockFetch.mockResolvedValueOnce(
-        mockJsonResponse({ error: 'Ref "e999" not found' })
-      );
+      mockFetch.mockResolvedValueOnce(mockJsonResponse({ error: 'Ref "e999" not found' }));
 
-      await expect(client.click("test-page", "e999")).rejects.toThrow(
-        'Ref "e999" not found'
-      );
+      await expect(client.click("test-page", "e999")).rejects.toThrow('Ref "e999" not found');
     });
   });
 
@@ -335,9 +324,7 @@ describe("DevBrowserLiteClient", () => {
     });
 
     it("should throw on fill error", async () => {
-      mockFetch.mockResolvedValueOnce(
-        mockJsonResponse({ error: "Element is not fillable" })
-      );
+      mockFetch.mockResolvedValueOnce(mockJsonResponse({ error: "Element is not fillable" }));
 
       await expect(client.fill("test-page", "e123", "value")).rejects.toThrow(
         "Element is not fillable"
@@ -357,19 +344,14 @@ describe("DevBrowserLiteClient", () => {
 
       const result = await client.getServerInfo();
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "http://localhost:9222/",
-        expect.any(Object)
-      );
+      expect(mockFetch).toHaveBeenCalledWith("http://localhost:9222/", expect.any(Object));
       expect(result.wsEndpoint).toBe("ws://localhost:9222");
       expect(result.mode).toBe("extension");
       expect(result.extensionConnected).toBe(true);
     });
 
     it("should default to launch mode", async () => {
-      mockFetch.mockResolvedValueOnce(
-        mockJsonResponse({ wsEndpoint: "ws://localhost:9222" })
-      );
+      mockFetch.mockResolvedValueOnce(mockJsonResponse({ wsEndpoint: "ws://localhost:9222" }));
 
       const result = await client.getServerInfo();
 

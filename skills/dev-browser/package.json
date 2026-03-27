@@ -2,11 +2,15 @@
   "name": "dev-browser",
   "version": "0.0.1",
   "type": "module",
+  "bin": {
+    "dev-browser": "./dist/cli.mjs"
+  },
   "imports": {
     "@/*": "./src/*"
   },
   "scripts": {
-    "build": "esbuild scripts/start-server.ts scripts/start-relay.ts scripts/start-external-browser.ts --bundle --platform=node --format=esm --outdir=dist --external:playwright --external:express --external:hono --external:@hono/*",
+    "build": "esbuild scripts/start-server.ts scripts/start-relay.ts scripts/start-external-browser.ts --bundle --platform=node --format=esm --outdir=dist --external:playwright --external:express --external:hono --external:@hono/* && npm run build:cli",
+    "build:cli": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.mjs --external:playwright",
     "start-server": "node dist/start-server.js",
     "start-server:dev": "npx tsx scripts/start-server.ts",
     "start-extension": "node dist/start-relay.js",
